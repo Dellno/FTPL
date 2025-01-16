@@ -113,12 +113,12 @@ def instruction_parser():
                 break
 
             elif program[cursor][i] == "ВВОД":
-                if len(program[cursor][i]) == 2 and program[cursor][i + 1] == "НЕЦЕЛ":
-                    user_input = input()
-                    user_input.replace(",", ".")
+                user_input = input()
+                user_input = user_input.replace(",", ".")
+                if len(program[cursor][i:]) == 2 and program[cursor][i + 1] == "НЕЦЕЛ":
                     program_memory[memory_cursor] = float(user_input)
                     continue
-                program_memory[memory_cursor] = int(input())
+                program_memory[memory_cursor] = int(user_input)
             elif program[cursor][i] == "ВВОДСТРОКИ":
                 input_string = input()
                 input_len = len(input_string)
