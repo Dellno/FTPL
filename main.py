@@ -1,34 +1,23 @@
 import sys
 
-MATH_NAMES = ["+", "-", "*", "/", "//", "%", "=", "!=", ">", "<", "ИЛИ", "И", "!"]
-KEY_WORDS = ["СЧИТАТЬ", "ВЫВОД", "ВВОД", "ВЫХОД", "ПЕРЕЙТИК", "ЕСЛИ", "СЧЁТ", "ЦЕЛ",
-             "КУРСОР", "СИМВОЛ", "СТРОКА", "ВВОДСТРОКИ", "СИМВОЛЫ", "ТОЧКА", "НЕЦЕЛ"]
+MATH_NAMES = ["+", "-", "*", "/", "//", "%", "=", "!=", ">", "<", "ИЛИ", "И", "!", "СЧИТАТЬ"]
+KEY_WORDS = ["ВЫВОД", "ВВОД", "ВЫХОД", "ПЕРЕЙТИК", "ЕСЛИ", "СЧЁТ", "ЦЕЛ",
+             "КУРСОР", "СИМВОЛ", "СТРОКА", "ВВОДСТРОКИ", "СИМВОЛЫ", "ТОЧКА", "НЕЦЕЛ",
+             "СЧИТАТЬФАЙЛ", "ЗАПИСАТЬФАЙЛ"]
 
-
-def read_memory(read_string):
-    if len(read_string) == 1:
-        return program_memory[int(read_string[0])]
-    return math_parse(read_string)
 
 
 def math_parse(math_string):
-    skip_iteration = False
     math_stack = []
-    get_from_memory = False
     for i in range(len(math_string)):
-        if skip_iteration:
-            skip_iteration = False
-            continue
         if math_string[i] not in MATH_NAMES:
-            if math_string[i] == "СЧИТАТЬ":
-                skip_iteration = True
-                math_stack.append(read_memory(math_string[i + 1:i + 2]))
-            else:
-                math_stack.append(float(math_string[i]))
+            math_stack.append(float(math_string[i]))
         else:
             el1 = math_stack.pop()
             if math_string[i] == "!":
                 res = not el1
+            elif math_string[i] == "СЧИТАТЬ":
+                res = program_memory[int(el1)]
             else:
                 try:
                     el2 = math_stack.pop()
@@ -136,13 +125,34 @@ def instruction_parser():
                     conditions = False
                     break
                 conditions = False
+            elif program[cursor][i] == "ЦЕЛ":
+                program_memory[memory_cursor] = int(program_memory[memory_cursor])
+            elif program[cursor][i] == "СЧИТАТЬФАЙЛ":
+                if program[cursor][i + 1] not in MATH_NAMES and program[cursor][i + 1] not in KEY_WORDS:
+                    read_cursor = int(math_parse(program[cursor][i + 1:]))
+                    filename_chars = []
+                    while program_memory[read_cursor] != 0:
+                        filename_chars.append(chr(program_memory[read_cursor]))
+                        read_cursor += 1
+                    filename = "".join(filename_chars)
+
+                with open(filename, "rb") as file:
+                    byte = file.read(1)
+                    write_cursor = memory_cursor
+                    while byte != b"":
+                        program_memory[write_cursor] = int.from_bytes(byte)
+                        byte = file.read(1)
+                        write_cursor += 1
+                    program_memory[write_cursor] = 0
+                break
+
             elif "СТРОКА" in program[cursor][i]:
                 for j in range(len(program[cursor][i + 1])):
                     program_memory[memory_cursor + j] = ord(program[cursor][i + 1][j])
                 program_memory[memory_cursor + len(program[cursor][i + 1])] = 0
                 break
-            elif program[cursor][i] == "ЦЕЛ":
-                program_memory[memory_cursor] = int(program_memory[memory_cursor])
+
+
     elif attachments_count < program[cursor][0].count("_"):
         pass
 
@@ -153,77 +163,13 @@ def instruction_parser():
 
 if __name__ == "__main__":
     try:
-        if sys.argv[1] == "help" or sys.argv[1] == "-help" or sys.argv[1] == "--help":
-            print("""
-            крайткий курс программирования на FTPL
-            
-            -КУРСОР <номер ячейки> функция задающая ячейку памяти с которой производятся действия.
-
-            -ВВОД читает числовое значение из консоли и записывает в текущую ячейку памяти
-            
-            -СЧЁТ <формула> результат математического выражения записанного после этой инструкции будет записан в текущую ячейку памяти
-            
-            -ЕСЛИ <формула> - инструкция для ветвления, все выражения на следующих строчках перед которыми (через пробел, это важно!) стоит символ "_" в количестве равном количеству вложенности будут выполнены только в том случае если условие истинно.
-            
-            -СЧИТАТЬ <номер ячейки> не используется как самостоятельная инструкция, указывает инструкциям СЧЁТ, ЕСЛИ и т.д на то, что необходимо взять значение из ячейки памяти.
-            
-            -ТОЧКА <любое слово> создаёт именованую точку перехода для инструкции ПЕРЕЙТИК
-            
-            -ПЕРЕЙТИК <номер строки (счёт строк начинать с 1) или именованая точка перехода> инструкция после выполнения которой программа будет выполняться далее с указанной строки. Крайне рекомендуется указывать переход на пустую строку, если в качестве аргумента использовано числовое значение.
-            
-            -СТРОКА <сама строка>СТРОКА инструккция записшет по 1 символу (ввиде числового значения кода ascii) указанную строку в память начиная с текущей ячейки. Стоит учесть, что строка займёт число символов равное не длине строки, а длине строки + 1, т.к. в конце записывается символ окончания строки.
-            
-            -ВВОДСТРОКИ <n, не обязательный аргумент> читает строку из консоли и записывает в память как и СТРОКА. При указании числа в качестве аргумента будут записаны только n + 1 символов строки (+1 т.к. всегда записывается символ окончания строки.
-            
-            -ВЫВОД без аргументов выводит целое число из текущей ячеки памяти. Возможно указание нескольких аргументов:
-            
-              -СИМВОЛЫ выводит последовательно все символы из ячеек памяти пока не дойдёт до ячейки со значением 0 (конец строки)
-            
-              -СИМВОЛ выводит 1 символ записанный в текущей ячейке памяти
-            
-              -СИМВОЛ <n> выводит n символов из ячеек
-            
-            -ВЫХОД оператор выхода из программы
-            
-            пример кода (нахождение n числа последовательности фибоначи):
-            
-            КУРСОР 0
-            СТРОКА введите номер числа: СТРОКА
-            ВЫВОД СИМВОЛЫ
-            КУРСОР 1
-            ВВОД
-            СЧЁТ СЧИТАТЬ 1 1 -
-            КУРСОР 2
-            СЧЁТ 0
-            КУРСОР 3
-            СЧЁТ 1
-            КУРСОР 4
-            СЧЁТ 1
-            ТОЧКА цикл
-            ЕСЛИ СЧИТАТЬ 2 СЧИТАТЬ 1 <
-            _ КУРСОР 2
-            _ СЧЁТ СЧИТАТЬ 2 1 +
-            _ КУРСОР 5
-            _ СЧЁТ СЧИТАТЬ 4
-            _ КУРСОР 4
-            _ СЧЁТ СЧИТАТЬ 4 СЧИТАТЬ 3 +
-            _ КУРСОР 3
-            _ СЧЁТ СЧИТАТЬ 5
-            _ ПЕРЕЙТИК цикл
-            КУРСОР 4
-            ВЫВОД
-            ВЫХОД
-                
-            \n""")
-            input("нажмите Enter чтобы закрыть")
-            sys.exit(0)
+        with open(sys.argv[1], "r", encoding='utf-8') as program_file:
+            program = program_file.readlines()
     except Exception:
         print("ОШИБКА!")
-        print("файл по указанному пути отсутствует или его местопложение и/или его имя указано не верно!")
+        print("файл по указанному пути отсутствует!")
         input("Нажмите ENTER для выхода")
         sys.exit(0)
-    with open(sys.argv[1], "r", encoding='utf-8') as program_file:
-        program = program_file.readlines()
     goto_points = dict()
     for i in range(len(program)):
         if "ТОЧКА" in program[i].split(" ")[0]:
@@ -240,12 +186,15 @@ if __name__ == "__main__":
         program[i] = program[i].rstrip("\n").split(" ")
     cursor = 0
     memory_cursor = 0
-    program_memory = [0 for i in range(65536)]
+    if len(sys.argv) > 2 and sys.argv[2] == "--memory":
+        program_memory = [0 for i in range(int(sys.argv[3]))]
+    else:
+        program_memory = [0 for i in range(65536)]
     attachments_count = 0
     try:
         while True:
             instruction_parser()
             cursor += 1
-    except Exception:
+    except Exception as x:
         print(f"Работа программы завершена с ошибкй на строке номер {cursor + 1}")
         print(f"Ошибка тут -> {" ".join(program[cursor])}")
